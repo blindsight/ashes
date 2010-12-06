@@ -8,6 +8,7 @@
 #include <stdarg.h> //va_list
 #include <signal.h> //signal
 #include <stdlib.h> //exit
+#include <arpa/inet.h>
 
 
 #include <ashes.h>
@@ -18,12 +19,12 @@ int main() {
 	signal(SIGINT,catch_kill);
 	int server_socket;
 	int true = 1;
-	struct sockaddr_in address;
-	int addrsize=sizeof(struct sockaddr_in);
+	struct sockaddr_in6 addr;
+	int addrsize=sizeof(struct sockaddr_in6);
 	int new_socket;
 	fd_set socklist; //list of what sockets to listen on
 	
-	if((server_socket = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+	if((server_socket = socket(PF_INET6, SOCK_STREAM, 0)) == -1) {
 		perror("unable to create socket");
 		exit(EXIT_FAILURE);
 	}
@@ -33,11 +34,14 @@ int main() {
 		
 	}
 
-	address.sin_family = AF_INET;
-	address.sin_addr.s_addr = INADDR_ANY;
-	address.sin_port = htons(SERVER_TELNET_SOCKET);
+//	struct sockaddr_in* ia = (struct sockaddr_in*)&addr;
 	
-	if(bind(server_socket,(struct sockaddr *)&address,sizeof(address)) != 0) {
+	addr.sin6_family = AF_INET6;
+	addr.sin6_port = htons(SERVER_TELNET_SOCKET);
+	
+//	inet_pton( AF_INET6, TALKER_ADDR, (void *)&address.sin6_addr.s6_addr);
+	
+	if(bind(server_socket,(struct sockaddr *)&addr,sizeof(struct sockaddr_in6)) != 0) {
 		perror(strerror(errno));
 		close(server_socket);
 		return 1;
@@ -78,21 +82,22 @@ int main() {
 		
 		FD_SET(server_socket, &socklist);
 		int i;
-		for(i=0; i<MAX_CLIENTS; i++) {
+		for(i=0; i<=MAX_CLIENTS; i++) {
 			if(client_sock[i] > 0 ) {
 				FD_SET(client_sock[i], &socklist);
 			}
 		}
 		
 
-		if((activity=select(MAX_CLIENTS+3, &socklist, NULL, NULL, NULL)) < 0 ) { //select error
+		if((activity=select(connected_clients+4, &socklist, NULL, NULL, NULL)) < 0 ) { //select error
 			perror("select error");
 
 		}
 
 		if(FD_ISSET(server_socket, &socklist)) {
+			memset (&addr, 0, sizeof (addr));
 			//handle new connection
-			if((new_socket = accept(server_socket, (struct sockaddr *)&address, (socklen_t *)&addrsize))<0) {
+			if((new_socket = accept(server_socket, (struct sockaddr *)&addr, (socklen_t *)&addrsize))<0) {
 				perror(strerror(errno));
 				close(server_socket);
 				close(new_socket);
@@ -110,13 +115,19 @@ int main() {
 					[EOPNOTSUPP]       socket is not of type SOCK_STREAM and thus does not accept connections.
 					[EWOULDBLOCK]      socket is marked as non-blocking and no connections are present to be accepted.
 				*/
+				continue;
 			}
 
-			printf("accepted socket moving on.\n");
-
+			connected_clients++;
+			
+			if(connected_clients > MAX_CLIENTS) {
+				write_user(new_socket,"\nTalker is filled to capacity... goodbye\n");
+				disconnect_user(new_socket);
+				continue;
+			}
 			write_user(new_socket,"\nconnected\n");
 			
-			for (i=0; i<MAX_CLIENTS; i++) {
+			for (i=0; i<=MAX_CLIENTS; i++) {
 				if (client_sock[i] == 0) {
 					client_sock[i] = new_socket;
 					break;
@@ -126,7 +137,7 @@ int main() {
 			write_user(new_socket,"welcome a new user to the talker!\n");	
 		}
 		
-		for (i=0; i<MAX_CLIENTS; i++) {
+		for (i=0; i<=MAX_CLIENTS; i++) {
 			if (FD_ISSET(client_sock[i], &socklist)) {
 				int bytes_read = 0;
 				if ((bytes_read = read(client_sock[i], user_buff[i], 1024)) < 0) {

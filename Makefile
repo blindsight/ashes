@@ -4,3 +4,6 @@ all:
 
 clean:
 	cd src; make clean
+
+cleanobj:
+	cd src; make cleanobj
