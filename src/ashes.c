@@ -1,8 +1,9 @@
 #include <stdio.h> //perror printf
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/select.h> //FD_ISSET
 #include <netinet/in.h>
-#include <strings.h>
+#include <string.h>	//strlen
 #include <errno.h> //int errno
 #include <unistd.h> // close
 #include <stdarg.h> //va_list
@@ -34,6 +35,7 @@ int main() {
 
 	addr.sin6_family = AF_INET6;
 	addr.sin6_port = htons(SERVER_TELNET_SOCKET);
+	inet_pton(AF_INET6, "::1", &addr.sin6_addr);
 	
 	if(bind(server_socket,(struct sockaddr *)&addr,sizeof(struct sockaddr_in6)) != 0) {
 		perror(strerror(errno));
@@ -104,8 +106,19 @@ int main() {
 				
 				temp_res->buff[bytes_read] = '\0';
 				
-				vwrite_talker("user %d says: %s", temp_res->socket, temp_res->buff);
-				
+				if(temp_res->buff[0] == '.') { //TODO: except more than one word commands					
+					if(!strncmp("shutdown",temp_res->buff+1,strlen("shutdown"))) {
+						write_talker("talker is shutting down\n");
+						return 0;
+					} else if (!strncmp("sreboot",temp_res->buff+1,strlen("sreboot"))) {
+						write_talker("seamless reboot is about to take place\n");
+					} else if (!strncmp("quit",temp_res->buff+1,strlen("quit"))) {
+						vwrite_talker("user %d leaves\n", temp_res->socket);
+						disconnect_user(temp_res);
+					}
+				} else { //speech is assumed
+					vwrite_talker("user %d says: %s", temp_res->socket, temp_res->buff);
+				}
 				break;
 			}
 		}

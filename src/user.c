@@ -1,7 +1,7 @@
 #include <stdio.h> //vsprintf
 #include <stdarg.h> //va_list
 #include <sys/socket.h> //send
-#include <strings.h>
+#include <string.h>
 #include <unistd.h> // close
 #include <stdlib.h>
 
