@@ -3,9 +3,12 @@
 #include <sys/socket.h> //send
 #include <strings.h>
 #include <unistd.h> // close
+#include <stdlib.h>
 
 #include <ashes.h>
 #include <user.h>
+
+TAILQ_HEAD(, resource_obj) head = TAILQ_HEAD_INITIALIZER(head);
 
 void vwrite_user(int socket, char *str, ...) {
 	va_list arglist;
@@ -20,22 +23,25 @@ void write_user(int socket, char *message) {
 	send(socket,message,strlen(message),0);
 }
 
-int connect_user(int new_socket) {
-	write_user(new_socket,"\nconnected\n");
+RES_OBJ create_resource() {
+	RES_OBJ temp_res = (RES_OBJ) malloc(sizeof(struct resource_obj));
 	
-	for (int i=0; i<=MAX_CLIENTS; i++) {
-		if (client_sock[i] == 0) {
-			client_sock[i] = new_socket;
-			break;
-		}
-	}
+	TAILQ_INSERT_TAIL(&head, temp_res, entries);
 	
-	write_user(new_socket,"welcome a new user to the talker!\n");
-	
-	return new_socket;
+	return temp_res;
 }
 
-void disconnect_user(int socket) {
+void connect_user(RES_OBJ res) {	
+	write_user(res->socket,"\nconnected\n");
+	
+	write_user(res->socket,"welcome a new user to the talker!\n");
+}
+
+void disconnect_user(RES_OBJ res) {	
 	connected_clients--;
-	close(socket);
+	
+	TAILQ_REMOVE(&head, res, entries);
+	
+	close(res->socket);
+	free(res);
 }
