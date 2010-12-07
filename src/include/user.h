@@ -10,8 +10,6 @@ typedef struct resource_obj {
 	TAILQ_ENTRY(resource_obj)	entries;
 } *RES_OBJ;
 
-//bsd
-
 /*prototypes */
 void write_user(int socket, char *message);
 void vwrite_user(int socket, char *str, ...);

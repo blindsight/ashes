@@ -4,7 +4,7 @@
 #include <netinet/in.h>
 #include <strings.h>
 #include <errno.h> //int errno
-#include <unistd.h>
+#include <unistd.h> // close
 #include <stdarg.h> //va_list
 #include <signal.h> //signal
 #include <stdlib.h> //exit
@@ -21,7 +21,6 @@ int main() {
 	int server_socket;
 	int true = 1;
 	struct sockaddr_in6 addr;
-	int new_socket;
 	fd_set socklist; //listening sockets
 	
 	if((server_socket = socket(PF_INET6, SOCK_STREAM, 0)) == -1) {
@@ -79,7 +78,7 @@ int main() {
 				vwrite_talker("unrecoverable error, talker is shutting down.\n");
 				perror(strerror(errno));
 				close(server_socket);
-				close(new_socket);
+				close(res->socket);
 
 				return 1;
 			}
@@ -115,7 +114,6 @@ int main() {
 	free(temp_res);
 			
 	close(server_socket);
-	close(new_socket);
 	
 	return 0;
 }

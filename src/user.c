@@ -34,7 +34,7 @@ RES_OBJ create_resource() {
 void connect_user(RES_OBJ res) {	
 	write_user(res->socket,"\nconnected\n");
 	
-	write_user(res->socket,"welcome a new user to the talker!\n");
+	write_user(res->socket,"welcome new user to the talker!\n");
 }
 
 void disconnect_user(RES_OBJ res) {	
