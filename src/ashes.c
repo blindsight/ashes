@@ -15,11 +15,12 @@
 #include <user.h>
 
 extern TAILQ_HEAD(, resource_obj) head;
+int connected_clients = 0;
 
-int main() {
+int main(int argc, char *argv[]) {
 	signal(SIGKILL,catch_kill);
 	signal(SIGINT,catch_kill);
-	int server_socket;
+	int server_socket, activity;
 	int true = 1;
 	struct sockaddr_in6 addr;
 	fd_set socklist; //listening sockets
@@ -46,14 +47,24 @@ int main() {
 	printf("listening for telnet connections on port %d\n",SERVER_TELNET_SOCKET);
 	listen(server_socket,3);
 	
-	printf("waiting to accept connection\n");
+	printf("waiting to accept connections\n");
 
 	//start resource list
 	TAILQ_INIT(&head);
 	
-	int activity;
-	
 	RES_OBJ temp_res;
+	
+	//before we start looking for new users, lets see if this is a seamless reboot
+	FILE *fp = fopen(SREBOOT_FILE,"r");
+	if( fp ) {
+		fclose(fp);
+		//lets readd the seamless reboot users
+		read_resources_from_file();
+		//the file is no longer needed
+		unlink(SREBOOT_FILE);
+		
+		write_talker("welcome back from the seamless reboot. who says c can't do hot swapable code?\n");
+	}
 	
 	for(;;) {
 		FD_ZERO(&socklist);
@@ -66,7 +77,7 @@ int main() {
 
 		//select needs highest file number +1. Thus 0,1,2 are standard, 3 will be server socket
 		//thus connected clients +4 for last number plus 1
-		if((activity=select(connected_clients+4, &socklist, NULL, NULL, NULL)) < 0 ) { //select error
+		if((activity=select(connected_clients+10, &socklist, NULL, NULL, NULL)) < 0 ) { //select error
 			perror(strerror(errno));
 		}
 
@@ -86,7 +97,7 @@ int main() {
 			}
 									
 			connected_clients++;
-
+			
 			if(connected_clients > MAX_CLIENTS) {
 				write_user(res->socket,"\nTalker is filled to capacity... goodbye\n");
 				disconnect_user(res);
@@ -112,9 +123,16 @@ int main() {
 						return 0;
 					} else if (!strncmp("sreboot",temp_res->buff+1,strlen("sreboot"))) {
 						write_talker("seamless reboot is about to take place\n");
+						write_resources_to_file();
+						free(temp_res);
+						close(server_socket);
+						//first argument is the talker's executable
+						execvp(*argv, argv);
 					} else if (!strncmp("quit",temp_res->buff+1,strlen("quit"))) {
 						vwrite_talker("user %d leaves\n", temp_res->socket);
 						disconnect_user(temp_res);
+					} else if (!strncmp("test",temp_res->buff+1,strlen("test"))) {
+						vwrite_talker("user %d has just conducted a test, thank you\n", temp_res->socket);
 					}
 				} else { //speech is assumed
 					vwrite_talker("user %d says: %s", temp_res->socket, temp_res->buff);

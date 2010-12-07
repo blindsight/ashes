@@ -9,6 +9,7 @@
 #include <user.h>
 
 TAILQ_HEAD(, resource_obj) head = TAILQ_HEAD_INITIALIZER(head);
+extern int connected_clients;
 
 void vwrite_user(int socket, char *str, ...) {
 	va_list arglist;
@@ -44,4 +45,42 @@ void disconnect_user(RES_OBJ res) {
 	
 	close(res->socket);
 	free(res);
+}
+
+void write_resources_to_file() {
+	FILE *sreboot_file;
+	
+	if((sreboot_file = fopen(SREBOOT_FILE,"w")) != NULL) {
+		RES_OBJ temp_res;
+	
+		//dump all sockets to the sreboot file
+		TAILQ_FOREACH(temp_res, &head, entries) {
+			fwrite(&temp_res->socket,sizeof(temp_res->socket),1, sreboot_file);
+			TAILQ_REMOVE(&head, temp_res, entries);
+		}
+		
+		fclose(sreboot_file);
+	} else {
+		perror("unable to do a seamless reboot\n");
+	}
+	
+}
+
+void read_resources_from_file() {
+	FILE *sreboot_file;
+	
+	if((sreboot_file = fopen(SREBOOT_FILE,"r")) != NULL) {
+		RES_OBJ loop_res = (RES_OBJ)malloc(sizeof(struct resource_obj));
+		RES_OBJ temp_res;
+		
+		while((fread(&loop_res->socket,sizeof(loop_res->socket), 1,sreboot_file))) {
+			connected_clients++;
+			temp_res = create_resource();	
+			temp_res->socket = loop_res->socket;
+		}		
+		fclose(sreboot_file);
+	} else {
+		perror("can't open sreboot file\n");
+		exit(1);
+	}
 }
