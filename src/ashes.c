@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
 
 		//select needs highest file number +1. Thus 0,1,2 are standard, 3 will be server socket
 		//thus connected clients +4 for last number plus 1
-		if((activity=select(connected_clients+10, &socklist, NULL, NULL, NULL)) < 0 ) { //select error
+		if((activity=select(connected_clients+4, &socklist, NULL, NULL, NULL)) < 0 ) { //select error
 			perror(strerror(errno));
 		}
 
