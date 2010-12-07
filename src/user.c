@@ -20,6 +20,21 @@ void write_user(int socket, char *message) {
 	send(socket,message,strlen(message),0);
 }
 
+int connect_user(int new_socket) {
+	write_user(new_socket,"\nconnected\n");
+	
+	for (int i=0; i<=MAX_CLIENTS; i++) {
+		if (client_sock[i] == 0) {
+			client_sock[i] = new_socket;
+			break;
+		}
+	}
+	
+	write_user(new_socket,"welcome a new user to the talker!\n");
+	
+	return new_socket;
+}
+
 void disconnect_user(int socket) {
 	connected_clients--;
 	close(socket);
