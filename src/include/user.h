@@ -1,14 +1,15 @@
 #ifndef USER_H
 #define USER_H
 
+#include <stdint.h>
 #include <sys/queue.h>
 
 typedef struct resource_obj {
-	int				socket;
+	int				socket, will, wont; //will and wont are for telnet
 	char				name[24];
 	char				buff[4096]; //user input buffer
-	unsigned char			rows, columns;
 	TAILQ_ENTRY(resource_obj)	entries;
+	uint16_t			rows, columns;
 } *RES_OBJ;
 
 /*prototypes */

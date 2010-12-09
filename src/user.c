@@ -13,6 +13,7 @@ TAILQ_HEAD(, resource_obj) head = TAILQ_HEAD_INITIALIZER(head);
 extern int connected_clients;
 
 void vwrite_user(int socket, char *str, ...) {
+	talker_buff[0]='\0';
 	va_list arglist;
 	va_start(arglist, str); //TODO: should I redo the va function to add our own %x in?
 	vsprintf(talker_buff, str, arglist);
@@ -37,8 +38,7 @@ RES_OBJ create_resource() {
 }
 
 void connect_user(RES_OBJ res) {	
-	write_user(res->socket,"\nconnected\n");
-	vwrite_user(res->socket,"%c%c%c",IAC,DO,NAWS);
+	request_naws(res);
 	write_user(res->socket,"welcome new user to the talker!\n");
 }
 

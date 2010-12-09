@@ -64,6 +64,10 @@ int main(int argc, char *argv[]) {
 		//the file is no longer needed
 		unlink(SREBOOT_FILE);
 		
+		TAILQ_FOREACH(temp_res, &head, entries) {
+			request_naws(temp_res);
+		}
+		
 		write_talker("welcome back from the seamless reboot. who says c can't do hot swapable code?\n");
 	}
 	
@@ -103,6 +107,7 @@ int main(int argc, char *argv[]) {
 				disconnect_user(res);
 			} else {
 				connect_user(res);
+				clear_screen(res);
 			}
 		}
 		
@@ -117,30 +122,11 @@ int main(int argc, char *argv[]) {
 					disconnect_user(temp_res);
 					continue;
 				}
-				
 				temp_res->buff[bytes_read] = '\0';
 				
-				if((unsigned char)temp_res->buff[0] == IAC) {
-					if(bytes_read == 12) { //TODO: proper checking
-						if((unsigned char)temp_res->buff[1] == WILL 
-							&& (unsigned char)temp_res->buff[2] == NAWS
-							&& (unsigned char)temp_res->buff[3] == IAC
-							&& (unsigned char)temp_res->buff[4] == SB
-							&& (unsigned char)temp_res->buff[5] == NAWS
-							) {
-							temp_res->rows = (unsigned char)temp_res->buff[7];
-							temp_res->columns = (unsigned char)temp_res->buff[9];
-							vwrite_user(temp_res->socket, "\nCurrent Window Size %dx%d\n",temp_res->rows,temp_res->columns);
-						}
-					} if(bytes_read == 9) { //TODO: proper checking
-						if((unsigned char)temp_res->buff[1] == SB
-							&& (unsigned char)temp_res->buff[2] == NAWS
-							) {
-								temp_res->rows = (unsigned char)temp_res->buff[4];
-								temp_res->columns = (unsigned char)temp_res->buff[6];
-								vwrite_user(temp_res->socket, "\nCurrent Window Size %dx%d\n",temp_res->rows,temp_res->columns);
-							}
-					}
+				if(IS_TELNET_CMD(temp_res->buff)) {
+					process_telnet_command(temp_res->buff, bytes_read, temp_res);
+					
 					vwrite_user(temp_res->socket,"\n telnet command (%d)", bytes_read);
 					
 					for(int i=1; i<bytes_read; i++) { //not the quickest but it works
@@ -167,11 +153,13 @@ int main(int argc, char *argv[]) {
 						disconnect_user(temp_res);
 					} else if (!strncmp("test",temp_res->buff+1,strlen("test"))) {
 						vwrite_talker("user %d has just conducted a test, thank you\n", temp_res->socket);
+					} else if (!strncmp("clear",temp_res->buff+1,strlen("clear"))) {
+						clear_screen(temp_res);
 					} else {
 						write_user(temp_res->socket, "invalid command\n");
 					}
 				} else { //speech is assumed
-					vwrite_talker("user %d says: %s", temp_res->socket, temp_res->buff);
+					vwrite_talker("user %d says: %s\n", temp_res->socket, temp_res->buff);
 				}
 				break;
 			}
@@ -186,6 +174,7 @@ int main(int argc, char *argv[]) {
 }
 
 void vwrite_talker(char *str, ...) {
+	talker_buff[0]='\0';
 	va_list arglist;
 	va_start(arglist, str); //TODO: should I redo the va function to add our own %x in?
 	vsprintf(talker_buff, str, arglist);
@@ -198,7 +187,11 @@ void write_talker(char *message) {
 	RES_OBJ temp_res;
 		
 	TAILQ_FOREACH(temp_res, &head, entries) {
-		send(temp_res->socket,message,strlen(message),0);
+		if(temp_res->rows > 0 && temp_res->columns > 0) {
+			vwrite_user_x_y(temp_res, temp_res->rows, 0, message); 
+		} else {
+			send(temp_res->socket,message,strlen(message),0);
+		}
 	}
 }
 
