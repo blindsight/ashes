@@ -13,17 +13,22 @@
 
 #include <ashes.h>
 #include <user.h>
+#include <telnet.h>
 
 extern TAILQ_HEAD(, resource_obj) head;
 int connected_clients = 0;
 
 int main(int argc, char *argv[]) {
-	signal(SIGKILL,catch_kill);
-	signal(SIGINT,catch_kill);
 	int server_socket, activity;
 	int true = 1;
 	struct sockaddr_in6 addr;
 	fd_set socklist; //listening sockets
+	RES_OBJ temp_res;
+	
+	signal(SIGKILL,catch_kill);
+	signal(SIGINT,catch_kill);
+	signal(SIGPIPE,pipe_handler); //broken sigpipe doesn't need to kill the talker
+	
 	
 	if((server_socket = socket(PF_INET6, SOCK_STREAM, 0)) == -1) {
 		perror("unable to create socket");
@@ -52,12 +57,8 @@ int main(int argc, char *argv[]) {
 	//start resource list
 	TAILQ_INIT(&head);
 	
-	RES_OBJ temp_res;
-	
 	//before we start looking for new users, lets see if this is a seamless reboot
-	FILE *fp = fopen(SREBOOT_FILE,"r");
-	if( fp ) {
-		fclose(fp);
+	if(access("SREBOOT_FILE",R_OK) == 0) {
 		//lets readd the seamless reboot users
 		read_resources_from_file();
 		//the file is no longer needed
@@ -97,7 +98,6 @@ int main(int argc, char *argv[]) {
 			}
 									
 			connected_clients++;
-			
 			if(connected_clients > MAX_CLIENTS) {
 				write_user(res->socket,"\nTalker is filled to capacity... goodbye\n");
 				disconnect_user(res);
@@ -106,16 +106,50 @@ int main(int argc, char *argv[]) {
 			}
 		}
 		
-		TAILQ_FOREACH(temp_res, &head, entries) {
+		RES_OBJ prev_res;
+		
+		TAILQ_FOREACH_SAFE(temp_res, &head, entries,prev_res) {
 			if (FD_ISSET(temp_res->socket, &socklist)) {
 				int bytes_read = 0;
 				
 				if ((bytes_read = read(temp_res->socket, temp_res->buff, 4096)) < 0) {
-					close(temp_res->socket);
-					temp_res->socket = 0;
+					vwrite_talker("\nuser %d has been disconnected\n", temp_res->socket);
+					disconnect_user(temp_res);
+					continue;
 				}
 				
 				temp_res->buff[bytes_read] = '\0';
+				
+				if((unsigned char)temp_res->buff[0] == IAC) {
+					if(bytes_read == 12) { //TODO: proper checking
+						if((unsigned char)temp_res->buff[1] == WILL 
+							&& (unsigned char)temp_res->buff[2] == NAWS
+							&& (unsigned char)temp_res->buff[3] == IAC
+							&& (unsigned char)temp_res->buff[4] == SB
+							&& (unsigned char)temp_res->buff[5] == NAWS
+							) {
+							temp_res->rows = (unsigned char)temp_res->buff[7];
+							temp_res->columns = (unsigned char)temp_res->buff[9];
+							vwrite_user(temp_res->socket, "\nCurrent Window Size %dx%d\n",temp_res->rows,temp_res->columns);
+						}
+					} if(bytes_read == 9) { //TODO: proper checking
+						if((unsigned char)temp_res->buff[1] == SB
+							&& (unsigned char)temp_res->buff[2] == NAWS
+							) {
+								temp_res->rows = (unsigned char)temp_res->buff[4];
+								temp_res->columns = (unsigned char)temp_res->buff[6];
+								vwrite_user(temp_res->socket, "\nCurrent Window Size %dx%d\n",temp_res->rows,temp_res->columns);
+							}
+					}
+					vwrite_user(temp_res->socket,"\n telnet command (%d)", bytes_read);
+					
+					for(int i=1; i<bytes_read; i++) { //not the quickest but it works
+						vwrite_user(temp_res->socket," [%d]",(unsigned char)temp_res->buff[i]);
+					}
+					
+					write_user(temp_res->socket, "\n");
+					continue; //we don't need to process anything else
+				}
 				
 				if(temp_res->buff[0] == '.') { //TODO: except more than one word commands					
 					if(!strncmp("shutdown",temp_res->buff+1,strlen("shutdown"))) {
@@ -133,6 +167,8 @@ int main(int argc, char *argv[]) {
 						disconnect_user(temp_res);
 					} else if (!strncmp("test",temp_res->buff+1,strlen("test"))) {
 						vwrite_talker("user %d has just conducted a test, thank you\n", temp_res->socket);
+					} else {
+						write_user(temp_res->socket, "invalid command\n");
 					}
 				} else { //speech is assumed
 					vwrite_talker("user %d says: %s", temp_res->socket, temp_res->buff);
@@ -164,10 +200,13 @@ void write_talker(char *message) {
 	TAILQ_FOREACH(temp_res, &head, entries) {
 		send(temp_res->socket,message,strlen(message),0);
 	}
-	
 }
 
 void catch_kill(int sig_num) {
 	printf("program is being killed %d\n",sig_num);
 	exit(0);
+}
+
+void pipe_handler(int sig_num) { //whats the best way to deal with a broken pipe?
+	return;
 }

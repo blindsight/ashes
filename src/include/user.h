@@ -7,6 +7,7 @@ typedef struct resource_obj {
 	int				socket;
 	char				name[24];
 	char				buff[4096]; //user input buffer
+	unsigned char			rows, columns;
 	TAILQ_ENTRY(resource_obj)	entries;
 } *RES_OBJ;
 

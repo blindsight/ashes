@@ -10,5 +10,6 @@ char talker_buff[4096]; //TODO: make this work with threads or fork
 
 void write_talker(char *message);
 void vwrite_talker(char *str, ...);
+void pipe_handler(int sig_num);
 
 #endif

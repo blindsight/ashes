@@ -7,6 +7,7 @@
 
 #include <ashes.h>
 #include <user.h>
+#include <telnet.h>
 
 TAILQ_HEAD(, resource_obj) head = TAILQ_HEAD_INITIALIZER(head);
 extern int connected_clients;
@@ -29,12 +30,15 @@ RES_OBJ create_resource() {
 	
 	TAILQ_INSERT_TAIL(&head, temp_res, entries);
 	
+	temp_res->rows = 0;
+	temp_res->columns = 0;
+	
 	return temp_res;
 }
 
 void connect_user(RES_OBJ res) {	
 	write_user(res->socket,"\nconnected\n");
-	
+	vwrite_user(res->socket,"%c%c%c",IAC,DO,NAWS);
 	write_user(res->socket,"welcome new user to the talker!\n");
 }
 
