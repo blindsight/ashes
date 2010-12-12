@@ -5,6 +5,7 @@
 
 #define TRANS_BINARY	0
 #define ECHO		1	//rfc857
+#define STATUS		5
 #define TERMINAL_TYPE	24
 #define NAWS		31
 #define CHARSET		42
@@ -41,7 +42,6 @@
 #define TTABLE_NAK	8
          
 
-
 //RFC858
 #define SUPPRESS_GA	3
 
@@ -61,4 +61,5 @@ void request_trans_bin(RES_OBJ res);
 void request_charset(RES_OBJ res);
 void request_option(RES_OBJ res, unsigned char option);
 void request_ga(RES_OBJ res);
+void request_status(RES_OBJ res);
 #endif

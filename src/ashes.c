@@ -65,9 +65,10 @@ int main(int argc, char *argv[]) {
 		unlink(SREBOOT_FILE);
 		
 		TAILQ_FOREACH(temp_res, &head, entries) {
+			request_status(temp_res); //lets know what we have already agreed to
 			request_naws(temp_res);
 			request_charset(temp_res);
-			request_option(temp_res, TERMINAL_TYPE);	
+		 	request_option(temp_res, TERMINAL_TYPE);
 		}
 		
 		write_talker("welcome back from the seamless reboot. who says c can't do hot swapable code?\n");

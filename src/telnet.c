@@ -18,6 +18,9 @@ void process_telnet_command(char *cmds, int len, RES_OBJ res) {
 				break;
 			case CHARSET:
 				break;
+			case STATUS:
+				vwrite_user(res->socket,"%c%c%c%c%c%c",IAC, SB, STATUS, SEND, IAC, SE);
+				break;
 			default:
 				vwrite_user(res->socket,"unknown will do '%d'\n", (unsigned char)cmds[2]);
 				break;
@@ -181,4 +184,8 @@ void write_out_telnet_cmd(RES_OBJ res, char *telnet_cmd, int length) {
 	}
 	
 	write_user(res->socket, "\n");
+}
+
+void request_status(RES_OBJ res) {
+	vwrite_user(res->socket,"%c%c%c",IAC,DO,STATUS);	
 }
