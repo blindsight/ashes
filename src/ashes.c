@@ -66,6 +66,8 @@ int main(int argc, char *argv[]) {
 		
 		TAILQ_FOREACH(temp_res, &head, entries) {
 			request_naws(temp_res);
+			request_charset(temp_res);
+			request_option(temp_res, TERMINAL_TYPE);	
 		}
 		
 		write_talker("welcome back from the seamless reboot. who says c can't do hot swapable code?\n");
@@ -122,22 +124,17 @@ int main(int argc, char *argv[]) {
 					disconnect_user(temp_res);
 					continue;
 				}
+				
 				temp_res->buff[bytes_read] = '\0';
 				
+				
 				if(IS_TELNET_CMD(temp_res->buff)) {
-					process_telnet_command(temp_res->buff, bytes_read, temp_res);
-					
-					vwrite_user(temp_res->socket,"\n telnet command (%d)", bytes_read);
-					
-					for(int i=1; i<bytes_read; i++) { //not the quickest but it works
-						vwrite_user(temp_res->socket," [%d]",(unsigned char)temp_res->buff[i]);
+					if(temp_res->telnet_view) {
+						write_out_telnet_cmd(temp_res, temp_res->buff, bytes_read);
 					}
 					
-					write_user(temp_res->socket, "\n");
-					continue; //we don't need to process anything else
-				}
-				
-				if(temp_res->buff[0] == '.') { //TODO: except more than one word commands					
+					process_telnet_command(temp_res->buff, bytes_read, temp_res);
+				} else if(temp_res->buff[0] == '.') { //TODO: except more than one word commands					
 					if(!strncmp("shutdown",temp_res->buff+1,strlen("shutdown"))) {
 						write_talker("talker is shutting down\n");
 						return 0;
@@ -155,13 +152,36 @@ int main(int argc, char *argv[]) {
 						vwrite_talker("user %d has just conducted a test, thank you\n", temp_res->socket);
 					} else if (!strncmp("clear",temp_res->buff+1,strlen("clear"))) {
 						clear_screen(temp_res);
+					} else if (!strncmp("ex",temp_res->buff+1,strlen("ex"))) {
+						RES_OBJ res_about;
+						int socket_test = strtol(temp_res->buff+4, NULL, 10);
+						
+						if(strlen(temp_res->buff)>4) { //need to more somekind of parser, this won't work for things bigger than 9 or names
+							TAILQ_FOREACH(res_about, &head, entries) {
+								if(res_about->socket == socket_test) {
+									break;
+								}
+							}
+						} else {
+							res_about = temp_res;
+						}
+						
+						examine(res_about, temp_res);
+					} else if(!strncmp("tv",temp_res->buff+1,strlen("tv"))) {
+						
+						if(temp_res->telnet_view) {
+							write_user(temp_res->socket,"telnet view commands off");
+							temp_res->telnet_view = 0;
+						} else {
+							write_user(temp_res->socket,"telnet view commands on");
+							temp_res->telnet_view = 1;
+						}
 					} else {
 						write_user(temp_res->socket, "invalid command\n");
 					}
 				} else { //speech is assumed
 					vwrite_talker("user %d says: %s\n", temp_res->socket, temp_res->buff);
 				}
-				break;
 			}
 		}
 	}

@@ -33,12 +33,18 @@ RES_OBJ create_resource() {
 	
 	temp_res->rows = 0;
 	temp_res->columns = 0;
+	temp_res->naws = 0;
+	temp_res->term_type = 0;
+	temp_res->charset = 0;
+	temp_res->telnet_view = 0;
 	
 	return temp_res;
 }
 
-void connect_user(RES_OBJ res) {	
+void connect_user(RES_OBJ res) {
 	request_naws(res);
+	request_charset(res);
+	request_option(res, TERMINAL_TYPE);
 	write_user(res->socket,"welcome new user to the talker!\n");
 }
 
@@ -87,4 +93,17 @@ void read_resources_from_file() {
 		perror("can't open sreboot file\n");
 		exit(1);
 	}
+}
+
+void examine(RES_OBJ res, RES_OBJ to_res) {
+	char output[1024];
+	
+	if(res == NULL) return;
+	
+	sprintf(output, "user %d's details\n",res->socket);
+	sprintf(output, "%s charset: %d %s\n",output, res->charset, res->charcode);
+	sprintf(output, "%s window size: %d rows: %d cols: %d\n",output, res->naws, res->rows, res->columns);
+	sprintf(output, "%s terminal type: %d %s\n\n",output, res->term_type, res->term);
+	
+	write_user(to_res->socket, output);
 }

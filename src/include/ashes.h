@@ -2,7 +2,7 @@
 #define ASHES_H
 
 #define SERVER_TELNET_SOCKET	2000
-#define MAX_CLIENTS		3
+#define MAX_CLIENTS		10
 #define SREBOOT_FILE		"./sreboot_file"
 
 #define BIT_SET(a,b) ((a) |= (1<<(b)))

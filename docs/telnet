@@ -1,0 +1,4 @@
+For starters, to push a telnet client into character mode you need to send:
+
+IAC WILL SUPPRESS GA
+IAC WILL ECHO
