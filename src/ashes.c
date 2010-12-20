@@ -157,36 +157,28 @@ int main(int argc, char *argv[]) {
 					}
 					
 					process_telnet_command(temp_res->buff, bytes_read, temp_res);
-				} else if(temp_res->buff[0] == '.') { //TODO: except more than one word commands
-					
+				} else if(temp_res->buff[0] == '.') {
+					CMD_OBJ temp_cmd;
+					int found_cmd = 0; // is this the best way?
 					//remove dot
 					strncpy(temp_res->last_words[0],(temp_res->last_words[0]+1),strlen(temp_res->last_words[0])-1);
 					temp_res->last_words[0][strlen(temp_res->last_words[0])-1]='\0';
 					
-					CMD_OBJ temp_cmd;
-					
 					TAILQ_FOREACH(temp_cmd, &cmd_list, entries) {
 						if(!strncmp(temp_res->last_words[0],temp_cmd->name,strlen(temp_res->last_words[0])-1)) {
-							vwrite_user(temp_res->socket, "would execute '%s' from %s\n",temp_cmd->name,temp_res->last_words[0]);
+							if(!strncmp(temp_cmd->name,"sreboot", strlen("sreboot"))) {
+								//still has to be special since the arugments are so different
+								talker_sreboot(argc, argv);
+							} else {
+								temp_cmd->func(temp_res);
+							}
+							found_cmd = 1;
 							break;
 						}
 					}
-										
-					if(!strncmp("shutdown",temp_res->buff+1,strlen("shutdown"))) {
-						talker_shutdown();
-					} else if (!strncmp("sreboot",temp_res->buff+1,strlen("sreboot"))) {
-						talker_sreboot(argc, argv);
-					} else if (!strncmp("quit",temp_res->buff+1,strlen("quit"))) {
-						resource_quits(temp_res);
-					} else if (!strncmp("clear",temp_res->buff+1,strlen("clear"))) {
-						clear_screen(temp_res);
-					} else if (!strncmp("ex",temp_res->buff+1,strlen("ex"))) {
-						examine(temp_res);
-					} else if(!strncmp("tv",temp_res->buff+1,strlen("tv"))) {
-						telnet_view(temp_res);
-					} else {
-						write_user(temp_res->socket, "invalid command\n");
-					}
+							
+					if(!found_cmd)	write_user(temp_res->socket, "invalid command\n");		
+						
 				} else { //speech is assumed
 					vwrite_talker("user %d says: %s\n", temp_res->socket, temp_res->buff);
 				}

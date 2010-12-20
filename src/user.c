@@ -136,10 +136,10 @@ void resource_quits(RES_OBJ res) {
 
 void telnet_view(RES_OBJ res) {
 	if(res->telnet_view) {
-		write_user(res->socket,"telnet view commands off");
+		write_user(res->socket,"telnet view commands off\n");
 		res->telnet_view = 0;
 	} else {
-		write_user(res->socket,"telnet view commands on");
+		write_user(res->socket,"telnet view commands on\n");
 		res->telnet_view = 1;
 	}
 }
