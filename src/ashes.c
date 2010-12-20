@@ -1,36 +1,53 @@
 #include <stdio.h> //perror printf
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netdb.h> //getaddrinfo
 #include <sys/select.h> //FD_ISSET
 #include <netinet/in.h>
 #include <string.h>	//strlen
 #include <errno.h> //int errno
 #include <unistd.h> // close
 #include <stdarg.h> //va_list
-#include <signal.h> //signal
 #include <stdlib.h> //exit
 #include <arpa/inet.h>
 
 #include <ashes.h>
 #include <user.h>
 #include <telnet.h>
+#include <commands.h>
+
+#ifdef __unix__
+	#include <unix.h>
+#endif
 
 extern TAILQ_HEAD(, resource_obj) head;
+extern TAILQ_HEAD(, command_obj) cmd_list;
+
 int connected_clients = 0;
 
 int main(int argc, char *argv[]) {
-	int server_socket, activity;
+	int activity;
 	int true = 1;
-	struct sockaddr_in6 addr;
+	struct addrinfo addr, *result;
 	fd_set socklist; //listening sockets
-	RES_OBJ temp_res;
+	int addr_error = 0;
 	
-	signal(SIGKILL,catch_kill);
-	signal(SIGINT,catch_kill);
-	signal(SIGPIPE,pipe_handler); //broken sigpipe doesn't need to kill the talker
+	//generate linked list of commands
+	create_commands();
 	
+	memset (&addr, 0, sizeof (addr));
 	
-	if((server_socket = socket(PF_INET6, SOCK_STREAM, 0)) == -1) {
+	addr.ai_family = AF_INET6;
+	addr.ai_socktype = SOCK_STREAM;
+	addr.ai_protocol = IPPROTO_TCP;
+	addr.ai_flags = AI_PASSIVE;
+
+	if ((addr_error = getaddrinfo(NULL, "2000", &addr, &result)) != 0 ) {
+	    printf("getaddrinfo failed with error: %d %s\n", addr_error, strerror(errno));
+	    exit(EXIT_FAILURE);
+	}
+
+	if((server_socket = socket(result->ai_family, result->ai_socktype, 0)) == -1) {
 		perror("unable to create socket");
 		exit(EXIT_FAILURE);
 	}
@@ -38,18 +55,14 @@ int main(int argc, char *argv[]) {
 	if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &true, sizeof(true))<0) {
 		perror(strerror(errno));
 	}
-
-	addr.sin6_family = AF_INET6;
-	addr.sin6_port = htons(SERVER_TELNET_SOCKET);
-	inet_pton(AF_INET6, "::1", &addr.sin6_addr);
 	
-	if(bind(server_socket,(struct sockaddr *)&addr,sizeof(struct sockaddr_in6)) != 0) {
+	if(bind(server_socket,result->ai_addr, (int)result->ai_addrlen) != 0) {
 		perror(strerror(errno));
 		close(server_socket);
 		return 1;
 	}
 	
-	printf("listening for telnet connections on port %d\n",SERVER_TELNET_SOCKET);
+	printf("listening for telnet connections on port %s\n",SERVER_TELNET_SOCKET);
 	listen(server_socket,3);
 	
 	printf("waiting to accept connections\n");
@@ -58,7 +71,7 @@ int main(int argc, char *argv[]) {
 	TAILQ_INIT(&head);
 	
 	//before we start looking for new users, lets see if this is a seamless reboot
-	if(access("SREBOOT_FILE",R_OK) == 0) {
+	if(file_exists(SREBOOT_FILE)) {
 		//lets readd the seamless reboot users
 		read_resources_from_file();
 		//the file is no longer needed
@@ -126,8 +139,17 @@ int main(int argc, char *argv[]) {
 					continue;
 				}
 				
+				
 				temp_res->buff[bytes_read] = '\0';
 				
+				strip_newline_at_end(temp_res->buff, bytes_read);
+				
+				//lets make sure there was more there than just a newline
+				if(strlen(temp_res->buff)<1) {
+					continue; //no real input
+				}
+				
+				create_last_words(temp_res);
 				
 				if(IS_TELNET_CMD(temp_res->buff)) {
 					if(temp_res->telnet_view) {
@@ -135,48 +157,33 @@ int main(int argc, char *argv[]) {
 					}
 					
 					process_telnet_command(temp_res->buff, bytes_read, temp_res);
-				} else if(temp_res->buff[0] == '.') { //TODO: except more than one word commands					
+				} else if(temp_res->buff[0] == '.') { //TODO: except more than one word commands
+					
+					//remove dot
+					strncpy(temp_res->last_words[0],(temp_res->last_words[0]+1),strlen(temp_res->last_words[0])-1);
+					temp_res->last_words[0][strlen(temp_res->last_words[0])-1]='\0';
+					
+					CMD_OBJ temp_cmd;
+					
+					TAILQ_FOREACH(temp_cmd, &cmd_list, entries) {
+						if(!strncmp(temp_res->last_words[0],temp_cmd->name,strlen(temp_res->last_words[0])-1)) {
+							vwrite_user(temp_res->socket, "would execute '%s' from %s\n",temp_cmd->name,temp_res->last_words[0]);
+							break;
+						}
+					}
+										
 					if(!strncmp("shutdown",temp_res->buff+1,strlen("shutdown"))) {
-						write_talker("talker is shutting down\n");
-						return 0;
+						talker_shutdown();
 					} else if (!strncmp("sreboot",temp_res->buff+1,strlen("sreboot"))) {
-						write_talker("seamless reboot is about to take place\n");
-						write_resources_to_file();
-						free(temp_res);
-						close(server_socket);
-						//first argument is the talker's executable
-						execvp(*argv, argv);
+						talker_sreboot(argc, argv);
 					} else if (!strncmp("quit",temp_res->buff+1,strlen("quit"))) {
-						vwrite_talker("user %d leaves\n", temp_res->socket);
-						disconnect_user(temp_res);
-					} else if (!strncmp("test",temp_res->buff+1,strlen("test"))) {
-						vwrite_talker("user %d has just conducted a test, thank you\n", temp_res->socket);
+						resource_quits(temp_res);
 					} else if (!strncmp("clear",temp_res->buff+1,strlen("clear"))) {
 						clear_screen(temp_res);
 					} else if (!strncmp("ex",temp_res->buff+1,strlen("ex"))) {
-						RES_OBJ res_about;
-						int socket_test = strtol(temp_res->buff+4, NULL, 10);
-						
-						if(strlen(temp_res->buff)>4) { //need to more somekind of parser, this won't work for things bigger than 9 or names
-							TAILQ_FOREACH(res_about, &head, entries) {
-								if(res_about->socket == socket_test) {
-									break;
-								}
-							}
-						} else {
-							res_about = temp_res;
-						}
-						
-						examine(res_about, temp_res);
+						examine(temp_res);
 					} else if(!strncmp("tv",temp_res->buff+1,strlen("tv"))) {
-						
-						if(temp_res->telnet_view) {
-							write_user(temp_res->socket,"telnet view commands off");
-							temp_res->telnet_view = 0;
-						} else {
-							write_user(temp_res->socket,"telnet view commands on");
-							temp_res->telnet_view = 1;
-						}
+						telnet_view(temp_res);
 					} else {
 						write_user(temp_res->socket, "invalid command\n");
 					}
@@ -216,11 +223,26 @@ void write_talker(char *message) {
 	}
 }
 
-void catch_kill(int sig_num) {
-	printf("program is being killed %d\n",sig_num);
+void talker_shutdown() {
+	write_talker("talker is shutting down\n");
 	exit(0);
 }
 
-void pipe_handler(int sig_num) { //whats the best way to deal with a broken pipe?
-	return;
+void talker_sreboot(int argc, char *argv[]) {
+	write_talker("seamless reboot is about to take place\n");
+	write_resources_to_file();
+	free(temp_res);
+	close(server_socket);
+	//first argument is the talker's executable
+	execvp(*argv, argv);
+}
+
+void strip_newline_at_end(char *line_strip, int len) {
+	for(int i=len-1; i>=0; i--) {
+		if(line_strip[i] == '\n') {
+			line_strip[i] = '\0';
+		} else {
+			return;
+		}
+	}
 }

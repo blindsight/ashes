@@ -37,6 +37,7 @@ RES_OBJ create_resource() {
 	temp_res->term_type = 0;
 	temp_res->charset = 0;
 	temp_res->telnet_view = 0;
+	temp_res->word_count = 0;
 	
 	return temp_res;
 }
@@ -95,15 +96,70 @@ void read_resources_from_file() {
 	}
 }
 
-void examine(RES_OBJ res, RES_OBJ to_res) {
+RES_OBJ get_res(int socket_test) {
+	RES_OBJ res_about;
+	
+	TAILQ_FOREACH(res_about, &head, entries) {
+		if(res_about->socket == socket_test) {
+			return res_about;
+		}
+	}
+	
+	return NULL;
+}
+
+void examine(RES_OBJ res) {
 	char output[1024];
+	RES_OBJ about_res;
 	
-	if(res == NULL) return;
+	if(res->word_count<2) {
+		about_res = res;
+	} else {
+		if((about_res = get_res(strtol(res->last_words[1], NULL, 10))) == NULL) {
+			vwrite_talker("user invalid %d", res->socket);
+			about_res = res;
+		}
+	}
 	
-	sprintf(output, "user %d's details\n",res->socket);
-	sprintf(output, "%s charset: %d %s\n",output, res->charset, res->charcode);
-	sprintf(output, "%s window size: %d rows: %d cols: %d\n",output, res->naws, res->rows, res->columns);
-	sprintf(output, "%s terminal type: %d %s\n\n",output, res->term_type, res->term);
+	sprintf(output, "user %d's details\n",about_res->socket);
+	sprintf(output, "%s charset: %d %s\n",output, about_res->charset, about_res->charcode);
+	sprintf(output, "%s window size: %d rows: %d cols: %d\n",output, about_res->naws, about_res->rows, about_res->columns);
+	sprintf(output, "%s terminal type: %d %s\n\n",output, about_res->term_type, about_res->term);
 	
-	write_user(to_res->socket, output);
+	write_user(res->socket, output);
+}
+
+void resource_quits(RES_OBJ res) {
+	vwrite_talker("user %d leaves\n", res->socket);
+	disconnect_user(res);	
+}
+
+void telnet_view(RES_OBJ res) {
+	if(res->telnet_view) {
+		write_user(res->socket,"telnet view commands off");
+		res->telnet_view = 0;
+	} else {
+		write_user(res->socket,"telnet view commands on");
+		res->telnet_view = 1;
+	}
+}
+
+void create_last_words(RES_OBJ res) {
+	char *inputcopy, *token;
+	int last_index = 0;
+	
+	inputcopy = strdup(res->buff);
+	
+	while((token = strsep(&inputcopy, " ")) != NULL && last_index<LAST_WORDS_MAX) {
+		res->last_words[last_index] = token;
+		
+		last_index++;
+	}
+	
+	if(last_index == 0) { //no spaces were ever used.
+		res->last_words[last_index] = res->buff;
+		last_index++;
+	}
+	
+	res->word_count = last_index;
 }

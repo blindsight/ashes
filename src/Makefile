@@ -1,7 +1,7 @@
 .PHONY: clean
 
 FLAGS = -Wall -pedantic -std=c99
-OBJS = user.o telnet.o ashes.o
+OBJS = user.o telnet.o unix.o commands.o ashes.o
 BUILD_DIR = ../bin
 INCLUDES = include
 DEBUG_FLAGS =-O0 -g
@@ -25,6 +25,10 @@ user.o: user.c
 
 telnet.o: telnet.c
 	gcc ${FLAGS} -I${INCLUDES} -c telnet.c
+unix.o: unix.c
+	gcc ${FLAGS} -I${INCLUDES} -c unix.c
+commands.o: commands.c
+	gcc ${FLAGS} -I${INCLUDES} -c commands.c
 clean:
 	rm $(BUILD_DIR)/ashes
 	rm *.o

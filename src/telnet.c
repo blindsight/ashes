@@ -141,6 +141,7 @@ void process_telnet_command(char *cmds, int len, RES_OBJ res) {
 
 void vwrite_user_x_y(RES_OBJ res, uint16_t rows, uint16_t cols, char *str, ...) {
 	char test_buff[strlen(str)];
+	
 	va_list arglist;
 	va_start(arglist, str); //TODO: should I redo the va function to add our own %x in?
 	vsprintf(test_buff, str, arglist);
@@ -169,7 +170,7 @@ void request_option(RES_OBJ res, unsigned char option) {
 	vwrite_user(res->socket,"%c%c%c",IAC,DO,option);
 }
 
-//puts the client to submitting things character by character
+//tells the client to submitting things character by character
 void request_ga(RES_OBJ res) {
 	vwrite_user(res->socket, "%c%c%c",IAC, WILL, SUPPRESS_GA);
 }
