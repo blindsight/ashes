@@ -34,6 +34,4 @@ void talker_shutdown();
 void talker_sreboot(int argc, char *argv[]);
 #endif
 
-void strip_newline_at_end(char *line_strip, int len);
-
 #endif

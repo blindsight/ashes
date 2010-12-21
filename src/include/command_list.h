@@ -12,6 +12,7 @@ struct cmd_list_struct {
 	{"quit",	resource_quits	},
 	{"clear",	clear_screen	},
 	{"examine",	examine		},
+	{"name",	set_name	},
 #ifdef __unix__
 	{"sreboot",	talker_sreboot	},
 #endif

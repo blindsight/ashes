@@ -150,7 +150,6 @@ int main(int argc, char *argv[]) {
 			}
 		}
 		
-		
 		TAILQ_FOREACH_SAFE(temp_res, &head, entries,prev_res) {
 			if (FD_ISSET(temp_res->socket, &socklist)) {
 				int bytes_read = 0;
@@ -161,10 +160,14 @@ int main(int argc, char *argv[]) {
 					continue;
 				}
 				
-				temp_res->buff[bytes_read] = '\0';
-				
-				
-				strip_newline_at_end(temp_res->buff, bytes_read);
+				if(bytes_read-1>=0 && temp_res->buff[bytes_read-1] == '\r') {
+					temp_res->buff[bytes_read-1]='\0';	
+				} else if(bytes_read-2>=0 && temp_res->buff[bytes_read-2] == '\r'
+					&& temp_res->buff[bytes_read-1] == '\n') {
+					temp_res->buff[bytes_read-2] = '\0';	
+				} else {
+					temp_res->buff[bytes_read] = '\0';
+				}
 				
 				//lets make sure there was more there than just a newline
 				if(strlen(temp_res->buff)<1) {
@@ -266,13 +269,3 @@ void talker_sreboot(int argc, char *argv[]) {
 }
 
 #endif
-void strip_newline_at_end(char *line_strip, int len) {
-	int i;
-	for(i=len-1; i>=0; i--) {
-		if(line_strip[i] == '\n') {
-			line_strip[i] = '\0';
-		} else {
-			return;
-		}
-	}
-}

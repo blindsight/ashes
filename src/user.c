@@ -62,8 +62,19 @@ RES_OBJ create_resource() {
 	temp_res->word_count = 0;
 	temp_res->charcode[0] = '\0';
 	temp_res->term[0] = '\0';
+	temp_res->user = (UR_OBJ) create_user();
 	
 	return temp_res;
+}
+
+UR_OBJ create_user() {
+
+	UR_OBJ user = (UR_OBJ) malloc(sizeof(struct user_obj));
+
+	user->name = "";
+	user->password = "";
+
+	return user;
 }
 
 void connect_user(RES_OBJ res) {
@@ -72,6 +83,7 @@ void connect_user(RES_OBJ res) {
 	request_option(res, TERMINAL_TYPE);
 	write_user(res->socket,"welcome new user to the talker!\n");
 }
+
 
 void disconnect_user(RES_OBJ res) {	
 	connected_clients--;
@@ -145,6 +157,7 @@ void examine(RES_OBJ res) {
 	}
 	
 	sprintf(output, "user %d's details\r\n",about_res->socket);
+	sprintf(output, "name: %s\r\n",about_res->user->name);
 	sprintf(output, "%s charset: %d %s\r\n",output, about_res->charset, about_res->charcode);
 	sprintf(output, "%s window size: %d rows: %d cols: %d\r\n",output, about_res->naws, about_res->rows, about_res->columns);
 	sprintf(output, "%s terminal type: %d %s\r\n\r\n",output, about_res->term_type, about_res->term);
@@ -196,4 +209,32 @@ void create_last_words(RES_OBJ res) {
 	}
 	
 	res->word_count = last_index;
+}
+
+void set_name(RES_OBJ res) {
+	RES_OBJ q_res;
+	
+	int name_len = 0;
+
+	if(res->word_count<2) {
+		vwrite_user(res->socket,".name <name> [<password>]");
+		return;
+	}
+
+	name_len = strlen(res->last_words[1]);
+
+	TAILQ_FOREACH(q_res, &head, entries) {
+		if(strlen(q_res->user->name) == name_len
+			&& !strncmp(q_res->user->name, res->last_words[1], name_len)) {
+				vwrite_user(res->socket,"'%s' is already taken\n",q_res->user->name);
+				//TODO: if the user already exists use a password if the same password then
+				//free one user object and change the pointer to the same object
+				
+				return;
+		}
+	}
+
+	res->user->name = strdup(res->last_words[1]);
+
+	vwrite_user(res->socket,"your name has been changed to '%s'.\n",res->user->name);
 }
