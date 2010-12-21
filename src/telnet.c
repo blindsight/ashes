@@ -97,11 +97,10 @@ void process_telnet_command(char *cmds, int len, RES_OBJ res) {
 						res->term[cmds_used-4] = cmds[cmds_used];
 					}
 					
-					res->term[cmds_used-4]='\0';
+					res->term[cmds_used-6]='\0';
 
 					if(cmds_used <= len && (unsigned char)cmds[cmds_used] == IAC && (unsigned char)cmds[cmds_used+1] == SE) {
 						cmds_used = cmds_used+2;
-						break;
 					}
 
 					res->term_type = 1;
@@ -119,12 +118,11 @@ void process_telnet_command(char *cmds, int len, RES_OBJ res) {
 						for(; cmds_used<len; cmds_used++) {
 							res->charcode[cmds_used-4] = cmds[cmds_used];
 						}
-					
-						res->charcode[cmds_used-4]='\0'; 
+
+						res->charcode[cmds_used-6]='\0'; 
 
 						if((unsigned char)cmds[cmds_used] == IAC && (unsigned char)cmds[cmds_used+1] == SE) {
 							cmds_used = cmds_used+2;
-							break;
 						}
 
 						res->charset = 1;

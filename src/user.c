@@ -69,7 +69,7 @@ RES_OBJ create_resource() {
 void connect_user(RES_OBJ res) {
 	request_naws(res);
 	request_charset(res);
-//	request_option(res, TERMINAL_TYPE);
+	request_option(res, TERMINAL_TYPE);
 	write_user(res->socket,"welcome new user to the talker!\n");
 }
 
@@ -140,7 +140,6 @@ void examine(RES_OBJ res) {
 		about_res = res;
 	} else {
 		if((about_res = get_res(strtol(res->last_words[1], NULL, 10))) == NULL) {
-			vwrite_talker("user invalid %d", res->socket);
 			about_res = res;
 		}
 	}
