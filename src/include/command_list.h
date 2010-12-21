@@ -1,3 +1,7 @@
+/*	Copyright (C) 2010  Timothy Rhodes <phoenixevolution@gmail.com> 
+	Project: Ashes
+*/
+
 #ifndef COMMAND_LIST_H
 #define COMMAND_LIST_H
 
@@ -8,7 +12,9 @@ struct cmd_list_struct {
 	{"quit",	resource_quits	},
 	{"clear",	clear_screen	},
 	{"examine",	examine		},
+#ifdef __unix__
 	{"sreboot",	talker_sreboot	},
+#endif
 	{"shutdown",	talker_shutdown	},
 	{"tv",		telnet_view	}
 };

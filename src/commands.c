@@ -1,3 +1,7 @@
+/*	Copyright (C) 2010  Timothy Rhodes <phoenixevolution@gmail.com> 
+	Project: Ashes
+*/
+
 #include <stdio.h> //NULL
 #include <stdlib.h> //malloc
 
@@ -22,8 +26,9 @@ void destroy_command(CMD_OBJ cmd) {
 
 void create_commands() {
 	CMD_OBJ temp_cmd;
+	int i;
 	
-	for(int i=0; i<CMD_COUNT; i++) {
+	for(i=0; i<CMD_COUNT; i++) {
 		temp_cmd = create_command();
 		temp_cmd->name = cmd_table[i].name;
 		temp_cmd->func = cmd_table[i].fname;

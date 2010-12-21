@@ -1,3 +1,8 @@
+/*	Copyright (C) 2010  Timothy Rhodes <phoenixevolution@gmail.com> 
+	Project: Ashes
+*/
+
+#ifndef WIN32
 #include <stdio.h> //printf
 #include <signal.h> //signal
 #include <stdlib.h> //exit
@@ -24,3 +29,5 @@ void pipe_handler(int sig_num) { //whats the best way to deal with a broken pipe
 int file_exists(const char *filename) {
 	return !access("SREBOOT_FILE",R_OK); //access returns 0 if true, thus we need to flip it
 }
+
+#endif //WIN32

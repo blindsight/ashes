@@ -1,3 +1,7 @@
+/*	Copyright (C) 2010  Timothy Rhodes <phoenixevolution@gmail.com> 
+	Project: Ashes
+*/
+
 #ifndef ASHES_H
 #define ASHES_H
 
@@ -25,7 +29,10 @@ int server_socket;
 void write_talker(char *message);
 void vwrite_talker(char *str, ...);
 void talker_shutdown();
+
+#ifdef __unix__
 void talker_sreboot(int argc, char *argv[]);
+#endif
 
 void strip_newline_at_end(char *line_strip, int len);
 

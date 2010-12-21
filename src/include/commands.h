@@ -1,7 +1,11 @@
+/*	Copyright (C) 2010  Timothy Rhodes <phoenixevolution@gmail.com> 
+	Project: Ashes
+*/
+
 #ifndef COMMANDS_H
 #define COMMANDS_H
 
-#include <sys/queue.h>
+#include <queue.h>
 
 #include <ashes.h>
 #include <telnet.h>

@@ -1,15 +1,31 @@
+/*	Copyright (C) 2010  Timothy Rhodes <phoenixevolution@gmail.com> 
+	Project: Ashes
+*/
+#ifdef WIN32
+	#define _CRT_SECURE_NO_WARNINGS //microsoft has put was string functions as insecure.. I don't care atm :)
+#endif
+
 #include <stdio.h> //perror printf
 #include <sys/types.h>
-#include <sys/socket.h>
-#include <netdb.h> //getaddrinfo
-#include <sys/select.h> //FD_ISSET
-#include <netinet/in.h>
+
+#ifdef WIN32
+	#define WIN32_LEAN_AND_MEAN
+	#include <windows.h>
+	#include <winsock2.h>
+	#include <ws2tcpip.h> //getaddrinfo
+#else
+	#include <sys/socket.h>
+	#include <unistd.h> // close
+	#include <netdb.h> //getaddrinfo
+	#include <sys/select.h> //FD_ISSET
+	#include <netinet/in.h>
+	#include <arpa/inet.h>
+#endif
+
 #include <string.h>	//strlen
 #include <errno.h> //int errno
-#include <unistd.h> // close
 #include <stdarg.h> //va_list
 #include <stdlib.h> //exit
-#include <arpa/inet.h>
 
 #include <ashes.h>
 #include <user.h>
@@ -18,6 +34,8 @@
 
 #ifdef __unix__
 	#include <unix.h>
+#else
+	#include <win.h>
 #endif
 
 extern TAILQ_HEAD(, resource_obj) head;
@@ -32,6 +50,7 @@ int main(int argc, char *argv[]) {
 	fd_set socklist; //listening sockets
 	int addr_error = 0;
 	
+	setup_talker();
 	//generate linked list of commands
 	create_commands();
 	
@@ -70,6 +89,7 @@ int main(int argc, char *argv[]) {
 	//start resource list
 	TAILQ_INIT(&head);
 	
+#ifndef WIN32 //windows doesn't support the function that does this operation
 	//before we start looking for new users, lets see if this is a seamless reboot
 	if(file_exists(SREBOOT_FILE)) {
 		//lets readd the seamless reboot users
@@ -86,28 +106,31 @@ int main(int argc, char *argv[]) {
 		
 		write_talker("welcome back from the seamless reboot. who says c can't do hot swapable code?\n");
 	}
-	
+#endif
 	for(;;) {
+		RES_OBJ prev_res;
+
 		FD_ZERO(&socklist);
 		
 		FD_SET(server_socket, &socklist);
 		
-		TAILQ_FOREACH(temp_res, &head, entries) {
+		TAILQ_FOREACH_SAFE(temp_res, &head, entries,prev_res) {
 			FD_SET(temp_res->socket, &socklist);
 		}	
 
 		//select needs highest file number +1. Thus 0,1,2 are standard, 3 will be server socket
 		//thus connected clients +4 for last number plus 1
-		if((activity=select(connected_clients+4, &socklist, NULL, NULL, NULL)) < 0 ) { //select error
+		if((activity=select(200, &socklist, NULL, NULL, NULL)) < 0 ) { //select error
 			perror(strerror(errno));
 		}
 
 		if(FD_ISSET(server_socket, &socklist)) {
 			int addrsize=sizeof(struct sockaddr_in6);
+			RES_OBJ res = create_resource();
 
 			memset (&addr, 0, sizeof (addr));
+			
 			//handle new connection
-			RES_OBJ res = create_resource();
 			if((res->socket = accept(server_socket, (struct sockaddr *)&addr, (socklen_t *)&addrsize))<0) {
 				vwrite_talker("unrecoverable error, talker is shutting down.\n");
 				perror(strerror(errno));
@@ -127,20 +150,19 @@ int main(int argc, char *argv[]) {
 			}
 		}
 		
-		RES_OBJ prev_res;
 		
 		TAILQ_FOREACH_SAFE(temp_res, &head, entries,prev_res) {
 			if (FD_ISSET(temp_res->socket, &socklist)) {
 				int bytes_read = 0;
-				
-				if ((bytes_read = read(temp_res->socket, temp_res->buff, 4096)) < 0) {
+
+				if ((bytes_read = recv(temp_res->socket, temp_res->buff, 4096, 0)) < 0) {
 					vwrite_talker("\nuser %d has been disconnected\n", temp_res->socket);
 					disconnect_user(temp_res);
 					continue;
 				}
 				
-				
 				temp_res->buff[bytes_read] = '\0';
+				
 				
 				strip_newline_at_end(temp_res->buff, bytes_read);
 				
@@ -166,12 +188,14 @@ int main(int argc, char *argv[]) {
 					
 					TAILQ_FOREACH(temp_cmd, &cmd_list, entries) {
 						if(!strncmp(temp_res->last_words[0],temp_cmd->name,strlen(temp_res->last_words[0])-1)) {
+#ifndef WIN32
 							if(!strncmp(temp_cmd->name,"sreboot", strlen("sreboot"))) {
 								//still has to be special since the arugments are so different
 								talker_sreboot(argc, argv);
-							} else {
+							} else
+#endif
 								temp_cmd->func(temp_res);
-							}
+							
 							found_cmd = 1;
 							break;
 						}
@@ -189,13 +213,18 @@ int main(int argc, char *argv[]) {
 	free(temp_res);
 			
 	close(server_socket);
+
+#ifdef WIN32
+	WSACleanup();
+#endif	
 	
 	return 0;
 }
 
 void vwrite_talker(char *str, ...) {
-	talker_buff[0]='\0';
 	va_list arglist;
+
+	talker_buff[0]='\0';
 	va_start(arglist, str); //TODO: should I redo the va function to add our own %x in?
 	vsprintf(talker_buff, str, arglist);
 	va_end(arglist);
@@ -217,9 +246,16 @@ void write_talker(char *message) {
 
 void talker_shutdown() {
 	write_talker("talker is shutting down\n");
+#ifdef WIN32
+	WSACleanup();
+#endif
 	exit(0);
 }
 
+#ifdef __unix__
+/*windows doesn't support execvup, even copying processes is a pain.
+untill more research is done I'm just not going to include this command for
+the windows builds */
 void talker_sreboot(int argc, char *argv[]) {
 	write_talker("seamless reboot is about to take place\n");
 	write_resources_to_file();
@@ -229,8 +265,10 @@ void talker_sreboot(int argc, char *argv[]) {
 	execvp(*argv, argv);
 }
 
+#endif
 void strip_newline_at_end(char *line_strip, int len) {
-	for(int i=len-1; i>=0; i--) {
+	int i;
+	for(i=len-1; i>=0; i--) {
 		if(line_strip[i] == '\n') {
 			line_strip[i] = '\0';
 		} else {

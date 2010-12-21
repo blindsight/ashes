@@ -1,8 +1,14 @@
+/*	Copyright (C) 2010  Timothy Rhodes <phoenixevolution@gmail.com> 
+	Project: Ashes
+*/
+
 #ifndef USER_H
 #define USER_H
 
 #include <stdint.h>
-#include <sys/queue.h>
+
+#include <queue.h>
+
 
 #define LAST_WORDS_MAX	10
 
@@ -38,4 +44,5 @@ void telnet_view(RES_OBJ res);
 
 void create_last_words(RES_OBJ res);
 RES_OBJ get_res(int socket_test);
+void turn_off_ga(RES_OBJ);
 #endif

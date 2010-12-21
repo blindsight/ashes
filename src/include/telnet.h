@@ -1,3 +1,7 @@
+/*	Copyright (C) 2010  Timothy Rhodes <phoenixevolution@gmail.com> 
+	Project: Ashes
+*/
+
 #ifndef TELNET_H
 #define TELNET_H
 
@@ -8,6 +12,7 @@
 #define STATUS		5
 #define TERMINAL_TYPE	24
 #define NAWS		31
+#define LINEMODE	34	//rfc1116
 #define CHARSET		42
 #define SE		240    //End of subnegotiation parameters.
 #define NOP		241    //No operation.
@@ -60,6 +65,5 @@ void request_naws(RES_OBJ res);
 void request_trans_bin(RES_OBJ res);
 void request_charset(RES_OBJ res);
 void request_option(RES_OBJ res, unsigned char option);
-void request_ga(RES_OBJ res);
 void request_status(RES_OBJ res);
 #endif

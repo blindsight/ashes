@@ -1,3 +1,10 @@
+/*	Copyright (C) 2010  Timothy Rhodes <phoenixevolution@gmail.com> 
+	Project: Ashes
+*/
+#ifdef WIN32
+	#define _CRT_SECURE_NO_WARNINGS //microsoft has put was string functions as insecure.. I don't care atm :)
+#endif
+
 #include <stdio.h> //vsprintf
 #include <string.h> //strncpy
 #include <stdarg.h> //va_list
@@ -37,11 +44,14 @@ void process_telnet_command(char *cmds, int len, RES_OBJ res) {
 		} else {
 			vwrite_user(res->socket, "won't do %d\n",(unsigned char)cmds[2]);
 			cmds_used = 3;
-		}
+		} 
 	} else if((unsigned char)cmds[1] == DO) {
 		switch((unsigned char)cmds[2]) {
 			case CHARSET:
 				vwrite_user(res->socket,"%c%c%c%c;UTF-8;ISO-8859-1;ISO-8859-2;US-ASCII;CP437%c%c",IAC,SB,CHARSET,REQUEST,IAC,SE);
+				cmds_used = 3;
+			break;
+			default:
 				cmds_used = 3;
 			break;
 		}
@@ -84,14 +94,16 @@ void process_telnet_command(char *cmds, int len, RES_OBJ res) {
 				cmds_used = cmds_used+4;
 				if((unsigned char)cmds[3] == IS) {
 					for(; cmds_used<len; cmds_used++) {
-						if(cmds_used <= len && (unsigned char)cmds[cmds_used] == IAC && (unsigned char)cmds[cmds_used+1] == SE) {
-							res->term[cmds_used-4]='\0';
-							cmds_used = cmds_used+2;
-							break;
-						}
 						res->term[cmds_used-4] = cmds[cmds_used];
 					}
 					
+					res->term[cmds_used-4]='\0';
+
+					if(cmds_used <= len && (unsigned char)cmds[cmds_used] == IAC && (unsigned char)cmds[cmds_used+1] == SE) {
+						cmds_used = cmds_used+2;
+						break;
+					}
+
 					res->term_type = 1;
 				
 					vwrite_user(res->socket, "terminal set to %s\n", res->term);
@@ -105,14 +117,16 @@ void process_telnet_command(char *cmds, int len, RES_OBJ res) {
 				switch((unsigned char)cmds[3]) {
 					case ACCEPTED:
 						for(; cmds_used<len; cmds_used++) {
-							if((unsigned char)cmds[cmds_used] == IAC && (unsigned char)cmds[cmds_used+1] == SE) {
-								res->charcode[cmds_used-4]='\0'; 
-								cmds_used = cmds_used+2;
-								break;
-							}
 							res->charcode[cmds_used-4] = cmds[cmds_used];
 						}
 					
+						res->charcode[cmds_used-4]='\0'; 
+
+						if((unsigned char)cmds[cmds_used] == IAC && (unsigned char)cmds[cmds_used+1] == SE) {
+							cmds_used = cmds_used+2;
+							break;
+						}
+
 						res->charset = 1;
 						vwrite_user(res->socket, "charset changed to %s\n", res->charcode);
 						break;
@@ -131,17 +145,20 @@ void process_telnet_command(char *cmds, int len, RES_OBJ res) {
 		cmds_used = 2;
 	} else { 
 		vwrite_talker("unknown telnet command %d\n", (unsigned char)cmds[1]);
-		cmds_used = 2;
+		cmds_used = len; //don't assume we can deal with the commands
 	}
-	
+
 	if(len > cmds_used ) { //more commands to be processed
 		process_telnet_command(cmds+cmds_used, len-cmds_used,res);
 	}
 }
 
 void vwrite_user_x_y(RES_OBJ res, uint16_t rows, uint16_t cols, char *str, ...) {
+#ifdef WIN32 //Visual Studio 2010 still doesn't fully support c99
+	char test_buff[4096]; //TODO: make this secure
+#else
 	char test_buff[strlen(str)];
-	
+#endif
 	va_list arglist;
 	va_start(arglist, str); //TODO: should I redo the va function to add our own %x in?
 	vsprintf(test_buff, str, arglist);
@@ -176,10 +193,10 @@ void request_ga(RES_OBJ res) {
 }
 
 void write_out_telnet_cmd(RES_OBJ res, char *telnet_cmd, int length) {
-	
+	int i;
 	vwrite_user(res->socket,"\n telnet command (%d)", length);
 	
-	for(int i=1; i<=length; i++) { //not the quickest but it works
+	for(i=1; i<=length; i++) { //not the quickest but it works
 		vwrite_user(res->socket," [%d]",(unsigned char)*telnet_cmd);
 		telnet_cmd++;
 	}

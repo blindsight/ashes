@@ -1,20 +1,42 @@
+/*	Copyright (C) 2010  Timothy Rhodes <phoenixevolution@gmail.com> 
+	Project: Ashes
+*/
+
+#ifdef WIN32
+	#define _CRT_SECURE_NO_WARNINGS //microsoft has put was string functions as insecure.. I don't care atm :)
+#endif
+
 #include <stdio.h> //vsprintf
 #include <stdarg.h> //va_list
-#include <sys/socket.h> //send
+
+#ifdef WIN32
+	#define WIN32_LEAN_AND_MEAN
+	#include <windows.h>
+	#include <winsock2.h>
+#else
+	#include <sys/socket.h> //send
+	#include <unistd.h> // close
+#endif 
+
 #include <string.h>
-#include <unistd.h> // close
 #include <stdlib.h>
 
 #include <ashes.h>
 #include <user.h>
 #include <telnet.h>
 
+#ifdef WIN32
+	#include <win.h>
+#endif
+
 TAILQ_HEAD(, resource_obj) head = TAILQ_HEAD_INITIALIZER(head);
 extern int connected_clients;
 
 void vwrite_user(int socket, char *str, ...) {
-	talker_buff[0]='\0';
 	va_list arglist;
+
+	talker_buff[0]='\0';
+	
 	va_start(arglist, str); //TODO: should I redo the va function to add our own %x in?
 	vsprintf(talker_buff, str, arglist);
 	va_end(arglist);
@@ -38,6 +60,8 @@ RES_OBJ create_resource() {
 	temp_res->charset = 0;
 	temp_res->telnet_view = 0;
 	temp_res->word_count = 0;
+	temp_res->charcode[0] = '\0';
+	temp_res->term[0] = '\0';
 	
 	return temp_res;
 }
@@ -45,7 +69,7 @@ RES_OBJ create_resource() {
 void connect_user(RES_OBJ res) {
 	request_naws(res);
 	request_charset(res);
-	request_option(res, TERMINAL_TYPE);
+//	request_option(res, TERMINAL_TYPE);
 	write_user(res->socket,"welcome new user to the talker!\n");
 }
 
@@ -121,10 +145,10 @@ void examine(RES_OBJ res) {
 		}
 	}
 	
-	sprintf(output, "user %d's details\n",about_res->socket);
-	sprintf(output, "%s charset: %d %s\n",output, about_res->charset, about_res->charcode);
-	sprintf(output, "%s window size: %d rows: %d cols: %d\n",output, about_res->naws, about_res->rows, about_res->columns);
-	sprintf(output, "%s terminal type: %d %s\n\n",output, about_res->term_type, about_res->term);
+	sprintf(output, "user %d's details\r\n",about_res->socket);
+	sprintf(output, "%s charset: %d %s\r\n",output, about_res->charset, about_res->charcode);
+	sprintf(output, "%s window size: %d rows: %d cols: %d\r\n",output, about_res->naws, about_res->rows, about_res->columns);
+	sprintf(output, "%s terminal type: %d %s\r\n\r\n",output, about_res->term_type, about_res->term);
 	
 	write_user(res->socket, output);
 }
@@ -150,11 +174,22 @@ void create_last_words(RES_OBJ res) {
 	
 	inputcopy = strdup(res->buff);
 	
+#ifdef WIN32
+	token = strtok( inputcopy, " ");
+	
+	do {
+		if(token == NULL) break;
+		res->last_words[last_index] = token;
+		
+		last_index++;	
+	} while((token = strtok(NULL, " ")) != NULL && last_index<LAST_WORDS_MAX);
+#else	//strtok is depercated platforms other than windows
 	while((token = strsep(&inputcopy, " ")) != NULL && last_index<LAST_WORDS_MAX) {
 		res->last_words[last_index] = token;
 		
 		last_index++;
 	}
+#endif
 	
 	if(last_index == 0) { //no spaces were ever used.
 		res->last_words[last_index] = res->buff;
