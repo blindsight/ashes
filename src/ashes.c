@@ -207,7 +207,12 @@ int main(int argc, char *argv[]) {
 					if(!found_cmd)	write_user(temp_res->socket, "invalid command\n");		
 						
 				} else { //speech is assumed
-					vwrite_talker("user %d says: %s\n", temp_res->socket, temp_res->buff);
+					if(!strcmp(temp_res->user->name,"")) {
+						vwrite_talker("user %d says: %s\n", temp_res->socket, temp_res->buff);
+					} else {
+						vwrite_talker("%s says: %s\n", temp_res->user->name, temp_res->buff);
+					}
+					
 				}
 			}
 		}

@@ -148,7 +148,7 @@ void examine(RES_OBJ res) {
 	char output[1024];
 	RES_OBJ about_res;
 	
-	if(res->word_count<2) {
+	if(res->word_count<2) { //TODO: select by resource or name.. maybe set default name by resource?
 		about_res = res;
 	} else {
 		if((about_res = get_res(strtol(res->last_words[1], NULL, 10))) == NULL) {
@@ -217,14 +217,14 @@ void set_name(RES_OBJ res) {
 	int name_len = 0;
 
 	if(res->word_count<2) {
-		vwrite_user(res->socket,".name <name> [<password>]");
+		vwrite_user(res->socket,".name <name> [<password>]\n");
 		return;
 	}
 
 	name_len = strlen(res->last_words[1]);
 
 	TAILQ_FOREACH(q_res, &head, entries) {
-		if(strlen(q_res->user->name) == name_len
+		if(strlen(q_res->user->name) == name_len //TODO: check for same password so a user can have multi locations
 			&& !strncmp(q_res->user->name, res->last_words[1], name_len)) {
 				vwrite_user(res->socket,"'%s' is already taken\n",q_res->user->name);
 				//TODO: if the user already exists use a password if the same password then
